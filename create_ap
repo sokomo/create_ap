@@ -324,7 +324,6 @@ else
 fi
 
 OLD_MACADDR=$(get_macaddr ${VWIFI_IFACE})
-NEW_MACADDR=$(get_new_macaddr ${VWIFI_IFACE})
 networkmanager_add_unmanaged ${VWIFI_IFACE}
 
 [[ $HIDDEN -eq 1 ]] && echo "Access Point's SSID is hidden!"
@@ -367,7 +366,9 @@ EOF
 fi
 
 # initialize WiFi interface
-ip link set dev ${VWIFI_IFACE} address ${NEW_MACADDR} || die
+if [[ ${OLD_MACADDR} == $(get_macaddr ${WIFI_IFACE}) ]]; then
+    ip link set dev ${VWIFI_IFACE} address $(get_new_macaddr ${VWIFI_IFACE}) || die
+fi
 ip link set down dev ${VWIFI_IFACE} || die
 ip addr flush ${VWIFI_IFACE} || die
 if [[ "$SHARE_METHOD" != "bridge" ]]; then
