@@ -54,7 +54,7 @@ usage() {
 }
 
 get_macaddr() {
-    ip link show "$1" | grep ether | grep -Eo '([0-9a-f]{2}:){5}[0-9a-f]{2}[[:space:]]' | tr -d '[[:space:]]'
+    ifconfig "$1" | grep ether | grep -Eo '([0-9a-f]{2}:){5}[0-9a-f]{2}[[:space:]]' | tr -d '[[:space:]]'
 }
 
 get_avail_bridge() {
@@ -71,7 +71,7 @@ get_new_macaddr() {
     OLDMAC=$(get_macaddr "$1")
     for i in {20..255}; do
         NEWMAC="${OLDMAC%:*}:$(printf %02x $i)"
-        (ip link | grep "ether ${NEWMAC}" > /dev/null 2>&1) || break
+        (ifconfig -a | grep "ether ${NEWMAC}" > /dev/null 2>&1) || break
     done
     echo $NEWMAC
 }
@@ -157,7 +157,7 @@ cleanup() {
             iptables -D FORWARD -i ${INTERNET_IFACE} -d ${GATEWAY%.*}.0/24 -j ACCEPT
             [[ -n $OLD_IP_FORWARD ]] && echo $OLD_IP_FORWARD > /proc/sys/net/ipv4/ip_forward
         elif [[ "$SHARE_METHOD" == "bridge" ]]; then
-            ip link set down $BRIDGE_IFACE
+            ifconfig $BRIDGE_IFACE down
             brctl delbr $BRIDGE_IFACE
             [[ -n $OLD_BRIDGE_IPTABLES ]] && echo $OLD_BRIDGE_IPTABLES > /proc/sys/net/bridge/bridge-nf-call-iptables
         fi
@@ -171,14 +171,12 @@ cleanup() {
 
     if [[ $NO_VIRT -eq 0 ]]; then
         if [[ -n $VWIFI_IFACE ]]; then
-            ip link set down dev ${VWIFI_IFACE}
-            ip addr flush ${VWIFI_IFACE}
+            ifconfig ${VWIFI_IFACE} 0.0.0.0 down
             networkmanager_rm_unmanaged ${VWIFI_IFACE} ${OLD_MACADDR}
             iw dev ${VWIFI_IFACE} del
         fi
     else
-        ip link set down dev ${WIFI_IFACE}
-        ip addr flush ${WIFI_IFACE}
+        ifconfig ${WIFI_IFACE} 0.0.0.0 down
         networkmanager_rm_unmanaged ${WIFI_IFACE}
     fi
 }
@@ -401,14 +399,12 @@ EOF
 fi
 
 # initialize WiFi interface
+ifconfig ${WIFI_IFACE} 0.0.0.0 down || die "$VIRTDIEMSG"
 if [[ $NO_VIRT -eq 0 ]]; then
-    ip link set dev ${WIFI_IFACE} address ${NEW_MACADDR} || die "$VIRTDIEMSG"
+    ifconfig ${WIFI_IFACE} hw ether ${NEW_MACADDR} || die "$VIRTDIEMSG"
 fi
-ip link set down dev ${WIFI_IFACE} || die "$VIRTDIEMSG"
-ip addr flush ${WIFI_IFACE} || die "$VIRTDIEMSG"
 if [[ "$SHARE_METHOD" != "bridge" ]]; then
-    ip link set up dev ${WIFI_IFACE} || die "$VIRTDIEMSG"
-    ip addr add ${GATEWAY}/24 broadcast ${GATEWAY%.*}.255 dev ${WIFI_IFACE} || die "$VIRTDIEMSG"
+    ifconfig ${WIFI_IFACE} ${GATEWAY} netmask 255.255.255.0 up || die "$VIRTDIEMSG"
 fi
 
 # enable Internet sharing
