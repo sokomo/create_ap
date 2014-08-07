@@ -33,6 +33,8 @@ usage() {
     echo "  --ht_capab <HT>     HT capabilities (default: [HT40+])"
     echo "  --driver            Choose your WiFi adapter driver (default: nl80211)"
     echo "  --no-virt           Do not create virtual interface"
+    echo "  --pre-conf          Use the pre defined config (ignored most of the settings)"
+    echo "  --no-nm             Set if not using NetworkManager by default"
     echo
     echo "Non-Bridging Options:"
     echo "  -g <gateway>        IPv4 Gateway for the Access Point (default: 192.168.12.1)"
@@ -149,6 +151,8 @@ IEEE80211N=0
 HT_CAPAB='[HT40+]'
 DRIVER=nl80211
 NO_VIRT=0
+PRE_CONF=0
+NO_NM=0
 
 CONFDIR=
 WIFI_IFACE=
@@ -164,12 +168,17 @@ cleanup() {
     echo "Doing cleanup..."
 
     # exiting
-    for x in $CONFDIR/*.pid; do
-        # even if the $CONFDIR is empty, the for loop will assign
-        # a value in $x. so we need to check if the value is a file
-        [[ -f $x ]] && kill -9 $(cat $x)
-    done
-    rm -rf $CONFDIR
+    if [[ $PRE_CONF -eq 0 ]]; then
+        for x in $CONFDIR/*.pid; do
+            # even if the $CONFDIR is empty, the for loop will assign
+            # a value in $x. so we need to check if the value is a file
+            [[ -f $x ]] && kill -9 $(cat $x)
+        done
+        rm -rf $CONFDIR
+    else
+        [[ -f /var/run/dnsmasq.pid ]] && kill -9 $(cat /var/run/dnsmasq.pid)
+    fi
+        
 
     if [[ "$SHARE_METHOD" != "none" ]]; then
         if [[ "$SHARE_METHOD" == "nat" ]]; then
@@ -194,13 +203,17 @@ cleanup() {
         if [[ -n $VWIFI_IFACE ]]; then
             ip link set down dev ${VWIFI_IFACE}
             ip addr flush ${VWIFI_IFACE}
-            networkmanager_rm_unmanaged ${VWIFI_IFACE} ${OLD_MACADDR}
+            if [[ $NO_NM -eq 0 ]]; then
+                networkmanager_rm_unmanaged ${VWIFI_IFACE} ${OLD_MACADDR}
+            fi
             iw dev ${VWIFI_IFACE} del
         fi
     else
         ip link set down dev ${WIFI_IFACE}
         ip addr flush ${WIFI_IFACE}
-        networkmanager_rm_unmanaged ${WIFI_IFACE}
+        if [[ $NO_NM -eq 0 ]]; then
+            networkmanager_rm_unmanaged ${WIFI_IFACE}
+        fi
     fi
 }
 
@@ -213,7 +226,7 @@ die() {
 # if the user press ctrl+c then execute die()
 trap "die" SIGINT
 
-ARGS=$(getopt -o hc:w:g:dnm: -l "help","hidden","ieee80211n","ht_capab:","driver:","no-virt" -n $(basename $0) -- "$@")
+ARGS=$(getopt -o hc:w:g:dnm: -l "help","hidden","ieee80211n","ht_capab:","driver:","no-virt","pre-conf","no-nm" -n $(basename $0) -- "$@")
 [[ $? -ne 0 ]] && exit 1
 eval set -- "$ARGS"
 
@@ -272,6 +285,14 @@ while :; do
         --no-virt)
             shift
             NO_VIRT=1
+            ;;
+        --pre-conf)
+            shift
+            PRE_CONF=1
+            ;;
+        --no-nm)
+            shift
+            NO_NM=1
             ;;
         --)
             shift
@@ -341,27 +362,31 @@ else
         fi
         INTERNET_IFACE=$2
     fi
-    if tty -s; then
-        read -p "SSID: " SSID
-        while :; do
-            read -p "Passphrase: " -s PASSPHRASE
-            echo
-            read -p "Retype passphrase: " -s PASSPHRASE2
-            echo
-            if [[ "$PASSPHRASE" != "$PASSPHRASE2" ]]; then
-                echo "Passphrases do not match."
-            else
-                break
-            fi
-        done
-    else
-        read SSID
-        read PASSPHRASE
+    if [[ $PRE_CONF -eq 0 ]]; then
+        if tty -s; then
+            read -p "SSID: " SSID
+            while :; do
+                read -p "Passphrase: " -s PASSPHRASE
+                echo
+                read -p "Retype passphrase: " -s PASSPHRASE2
+                echo
+                if [[ "$PASSPHRASE" != "$PASSPHRASE2" ]]; then
+                    echo "Passphrases do not match."
+                else
+                    break
+                fi
+            done
+        else
+            read SSID
+            read PASSPHRASE
+        fi
     fi
 fi
 
-CONFDIR=$(mktemp -d /tmp/create_ap.${WIFI_IFACE}.conf.XXXXXXXX)
-echo "Config dir: $CONFDIR"
+if [[ $PRE_CONF -eq 0 ]]; then
+    CONFDIR=$(mktemp -d /tmp/create_ap.${WIFI_IFACE}.conf.XXXXXXXX)
+    echo "Config dir: $CONFDIR"
+fi
 
 if [[ $NO_VIRT -eq 0 ]]; then
     VWIFI_IFACE=${WIFI_IFACE}ap
@@ -389,12 +414,20 @@ else
     [[ "$WIFI_IFACE" == "$INTERNET_IFACE" ]] && die "You can not share your connection from the same interface if you are using --no-virt option."
 fi
 
-networkmanager_add_unmanaged ${WIFI_IFACE}
+if [[ $NO_NM -eq 0 ]]; then
+    networkmanager_add_unmanaged ${WIFI_IFACE}
+fi
 
 [[ $HIDDEN -eq 1 ]] && echo "Access Point's SSID is hidden!"
 
-# hostapd config
-cat << EOF > $CONFDIR/hostapd.conf
+if [[ $PRE_CONF -eq 1 ]]; then
+    echo "Use prefined config:
+       HostAPD: /etc/hostapd/hostapd.conf
+       dnsmasq: /etc/dnsmasq"
+else
+    echo "Set config for HostAPD and DNSMasq"
+    # hostapd config
+    cat << EOF > $CONFDIR/hostapd.conf
 ssid=${SSID}
 interface=${WIFI_IFACE}
 driver=${DRIVER}
@@ -406,28 +439,28 @@ ctrl_interface_group=0
 ignore_broadcast_ssid=$HIDDEN
 EOF
 
-if [[ $IEEE80211N -eq 1 ]]; then
-    cat << EOF >> $CONFDIR/hostapd.conf
+    if [[ $IEEE80211N -eq 1 ]]; then
+        cat << EOF >> $CONFDIR/hostapd.conf
 ieee80211n=1
 wmm_enabled=1
 ht_capab=${HT_CAPAB}
 EOF
-fi
+    fi
 
-if [[ -n "$PASSPHRASE" ]]; then
-    [[ "$WPA_VERSION" == "1+2" || "$WPA_VERSION" == "2+1" ]] && WPA_VERSION=3
-    cat << EOF >> $CONFDIR/hostapd.conf
+    if [[ -n "$PASSPHRASE" ]]; then
+        [[ "$WPA_VERSION" == "1+2" || "$WPA_VERSION" == "2+1" ]] && WPA_VERSION=3
+        cat << EOF >> $CONFDIR/hostapd.conf
 wpa=${WPA_VERSION}
 wpa_passphrase=$PASSPHRASE
 wpa_key_mgmt=WPA-PSK
 wpa_pairwise=TKIP CCMP
 rsn_pairwise=CCMP
 EOF
-fi
+    fi
 
-if [[ "$SHARE_METHOD" == "bridge" ]]; then
-    echo "bridge=${BRIDGE_IFACE}" >> $CONFDIR/hostapd.conf
-else
+    if [[ "$SHARE_METHOD" == "bridge" ]]; then
+        echo "bridge=${BRIDGE_IFACE}" >> $CONFDIR/hostapd.conf
+    else
     # dnsmasq config (dhcp + dns)
     cat << EOF > $CONFDIR/dnsmasq.conf
 interface=${WIFI_IFACE}
@@ -436,6 +469,7 @@ dhcp-range=${GATEWAY%.*}.1,${GATEWAY%.*}.254,255.255.255.0,24h
 dhcp-option=option:router,${GATEWAY}
 EOF
     [[ $ETC_HOSTS -eq 0 ]] && echo no-hosts >> $CONFDIR/dnsmasq.conf
+    fi
 fi
 
 # initialize WiFi interface
@@ -469,11 +503,13 @@ else
     echo "No Internet sharing"
 fi
 
-# boost low-entropy
-if [[ $(cat /proc/sys/kernel/random/entropy_avail) -lt 1000 ]]; then
-    which haveged > /dev/null 2>&1 && {
-        haveged -w 1024 -p $CONFDIR/haveged.pid
-    }
+if [[ $PRE_CONF -eq 0 ]]; then
+    # boost low-entropy
+    if [[ $(cat /proc/sys/kernel/random/entropy_avail) -lt 1000 ]]; then
+        which haveged > /dev/null 2>&1 && {
+            haveged -w 1024 -p $CONFDIR/haveged.pid
+        }
+    fi
 fi
 
 # start dns + dhcp server
@@ -481,13 +517,25 @@ if [[ "$SHARE_METHOD" != "bridge" ]]; then
     iptables -I INPUT -p tcp -m tcp --dport 53 -j ACCEPT || die
     iptables -I INPUT -p udp -m udp --dport 53 -j ACCEPT || die
     iptables -I INPUT -p udp -m udp --dport 67 -j ACCEPT || die
-    dnsmasq -C $CONFDIR/dnsmasq.conf -x $CONFDIR/dnsmasq.pid || die
+    if [[ $PRE_CONF -eq 0 ]]; then
+        dnsmasq -C $CONFDIR/dnsmasq.conf -x $CONFDIR/dnsmasq.pid || die
+    else
+        echo "Test pre defined dnsmasq config"
+        dnsmasq --test || die
+        dnsmasq --enable-dbus --user=dnsmasq -x /var/run/dnsmasq.pid || die
+    fi
 fi
 
 # start access point
-echo "hostapd command-line interface: hostapd_cli -p $CONFDIR/hostapd_ctrl"
-trap - SIGINT # reset trap
-hostapd $CONFDIR/hostapd.conf || die "Failed to run hostapd, maybe a program is interfering."
+if [[ $PRE_CONF -eq 0 ]]; then
+    echo "hostapd command-line interface: hostapd_cli -p $CONFDIR/hostapd_ctrl"
+    trap - SIGINT # reset trap
+    hostapd $CONFDIR/hostapd.conf || die "Failed to run hostapd, maybe a program is interfering."
+else
+    echo "Start HostAPD with pre defined config"
+    trap - SIGINT # reset trap
+    hostapd /etc/hostapd/hostapd.conf || die "Failed to run hostapd, maybe a program is interfering."
+fi
 
 cleanup
 exit 0
