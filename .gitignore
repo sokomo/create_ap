@@ -1,2 +1,8 @@
+.*
+*.orig
+*.rej
+*~
+\#*\#
+*.swp
+
 /create_ap
-/.gopath/
