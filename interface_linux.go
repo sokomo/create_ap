@@ -31,6 +31,29 @@ func (iface *Interface) isBridge() bool {
 	return err == nil
 }
 
+func (iface *Interface) refresh() error {
+	return iface.init(iface.Name)
+}
+
+func (iface *Interface) setDown() error {
+	err := runCmd("ip", "link", "set", "down", "dev", iface.Name)
+	if err != nil {
+		return err
+	}
+
+	err = runCmd("ip", "addr", "flush", iface.Name)
+	if err != nil {
+		return err
+	}
+
+	return iface.refresh()
+}
+
+func (iface *Interface) addIPv4(ipnet *IPNet) error {
+	return runCmd("ip", "addr", "add", ipnet.String(),
+		"broadcast", ipnet.broadcast().String(), "dev", iface.Name)
+}
+
 type WifiChannel struct {
 	num uint
 	mhz uint
