@@ -27,7 +27,6 @@ type AccessPoint struct {
 	isolateClients bool
 	wpa            WpaVersion
 	wifiIf         WifiInterface
-	internetIf     Interface
 	daemons        []*exec.Cmd
 	confDir        string
 	fatalError     chan error

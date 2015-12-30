@@ -1,11 +1,13 @@
+export GOPATH=$(CURDIR)/.gopath
+export GO15VENDOREXPERIMENT=1
+
 PROJ_GO_DIR=github.com/oblique/create_ap
 
 .PHONY: all
 all:
 	mkdir -p .gopath/src/$(dir $(PROJ_GO_DIR))
-	[ -e .gopath/src/$(PROJ_GO_DIR) ] || \
-		ln -sf $(CURDIR) .gopath/src/$(PROJ_GO_DIR)
-	GOPATH=$(CURDIR)/.gopath go build $(PROJ_GO_DIR)
+	ln -snf $(CURDIR) .gopath/src/$(PROJ_GO_DIR)
+	go build $(PROJ_GO_DIR)
 
 .PHONY: clean
 clean:

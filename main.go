@@ -1,58 +1,50 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 const (
 	Version = "0.3"
 )
 
-func init() {
-	// Make sure that all command outputs are in english, so we can parse them
-	// correctly.
-	if err := os.Setenv("LC_ALL", "C"); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
+var (
+	argExamples = kingpin.Command("examples", "Show examples for this tool.")
 
-	flag.Usage = func() {
-		fmt.Fprintln(os.Stderr, "Usage: create_ap [options] [<wifi-interface>"+
-			" <internet-interface> <acess-point-name> [<passphrase>]]\n")
-		flag.PrintDefaults()
-	}
-}
-
-func readSSID() string {
-	if len(os.Args) > 3 {
-		return os.Args[3]
-	}
-	return ""
-}
-
-func readPassphrase() string {
-	if len(os.Args) > 4 {
-		return os.Args[4]
-	}
-	return ""
-}
+	argStart   = kingpin.Command("start", "Create new Access Point.")
+	argGateway = argStart.Flag("gateway", "IPv4 Gateway for the AP.").
+			Short('g').Default("192.168.12.1").String()
+	argInterface = argStart.Flag("interface", "WiFi interface that will create the AP.").
+			Short('i').Required().String()
+	argSSID       = argStart.Flag("ssid", "Name of the AP.").Short('s').Required().String()
+	argPassphrase = argStart.Flag("passphrase", "Set passphrase.").Short('p').String()
+)
 
 func main() {
+	kingpin.Version(Version).Author("oblique")
+
+	switch kingpin.Parse() {
+	case "examples":
+		cmdExamples()
+	case "start":
+		cmdStart()
+	}
+}
+
+func cmdExamples() {
+	printExamples()
+}
+
+func cmdStart() {
 	var ap AccessPoint
 	var err error
-
-	flag.Parse()
-
-	if len(os.Args) == 1 {
-		flag.Usage()
-		os.Exit(1)
-	}
 
 	// Check if all dependencies are installed
 	if err = checkDeps(); err != nil {
@@ -60,22 +52,31 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = ap.wifiIf.init(os.Args[1]); err != nil {
+	if os.Geteuid() != 0 {
+		fmt.Println("You must run it as root.")
+		os.Exit(1)
+	}
+
+	if err = ap.wifiIf.init(*argInterface); err != nil {
 		log.Fatalln(err)
 	}
 
-	if err = ap.internetIf.init(os.Args[2]); err != nil {
-		log.Fatalln(err)
+	ap.ssid = *argSSID
+	if len(*argSSID) < 1 || len(*argSSID) > 32 {
+		log.Fatalln("Invalid SSID length (expected 1..32)")
 	}
 
-	ap.ssid = readSSID()
-	ap.passphrase = readPassphrase()
+	ap.passphrase = *argPassphrase
+	if len(*argPassphrase) > 0 &&
+		(len(*argPassphrase) < 8 || len(*argPassphrase) > 63) {
+		log.Fatalln("Invalid passphrase length (expected 8..63)")
+	}
 
 	ap.wpa = WPA1 | WPA2
 	ap.channel.num = 1
 	ap.channel.mhz = 2412
 
-	ap.gateway, err = parseIPv4("192.168.12.1")
+	ap.gateway, err = parseIPv4(*argGateway)
 	if err != nil {
 		log.Fatalln(err)
 	}
