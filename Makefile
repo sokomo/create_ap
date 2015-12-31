@@ -9,6 +9,12 @@ all:
 	ln -snf $(CURDIR) .gopath/src/$(PROJ_GO_DIR)
 	go build $(PROJ_GO_DIR)
 
+.PHONY: vendor-up
+vendor-up:
+	rm -rf vendor
+	glide update
+	find vendor -name .git | xargs rm -rf
+
 .PHONY: clean
 clean:
 	rm -rf create_ap .gopath
