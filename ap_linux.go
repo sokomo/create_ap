@@ -188,10 +188,11 @@ func (ap *AccessPoint) configureHostapd() (string, error) {
 	f.WriteString("ssid=" + ap.ssid + "\n")
 	f.WriteString(fmt.Sprintf("channel=%d\n", ap.channel.num))
 
-	if ap.channel.mhz > 2400 && ap.channel.mhz < 2500 {
+	switch {
+	case ap.channel.mhz > 2400 && ap.channel.mhz < 2500:
 		// 2.4 GHz
 		f.WriteString("hw_mode=g\n")
-	} else if ap.channel.mhz > 4900 && ap.channel.mhz < 6000 {
+	case ap.channel.mhz > 4900 && ap.channel.mhz < 6000:
 		// 5 GHz
 		f.WriteString("hw_mode=a\n")
 	}
