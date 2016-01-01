@@ -187,6 +187,7 @@ func (ap *AccessPoint) configureHostapd() (string, error) {
 	defer f.Close()
 
 	f.WriteString("interface=" + ap.wifiIf.Name + "\n")
+	f.WriteString("bssid=" + ap.wifiIf.HardwareAddr.String() + "\n")
 	f.WriteString("ssid=" + ap.ssid + "\n")
 	f.WriteString(fmt.Sprintf("channel=%d\n", ap.channel))
 
