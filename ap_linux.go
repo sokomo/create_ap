@@ -186,22 +186,30 @@ func (ap *AccessPoint) configureHostapd() (string, error) {
 
 	f.WriteString("interface=" + ap.wifiIf.Name + "\n")
 	f.WriteString("ssid=" + ap.ssid + "\n")
-	f.WriteString(fmt.Sprintf("channel=%d\n", ap.channel.num))
+	f.WriteString(fmt.Sprintf("channel=%d\n", ap.channel))
 
-	switch {
-	case ap.channel.mhz > 2400 && ap.channel.mhz < 2500:
-		// 2.4 GHz
+	switch ap.ieee80211 {
+	case IEEE80211_G:
 		f.WriteString("hw_mode=g\n")
-	case ap.channel.mhz > 4900 && ap.channel.mhz < 6000:
-		// 5 GHz
-		f.WriteString("hw_mode=a\n")
-	}
+	case IEEE80211_N:
+		if ap.channel <= 14 {
+			f.WriteString("hw_mode=g\n")
+		} else {
+			f.WriteString("hw_mode=a\n")
+		}
 
-	if ap.ieee80211 == IEEE80211_N {
 		f.WriteString("ieee80211n=1\n")
 		f.WriteString("wmm_enabled=1\n")
 		f.WriteString("ht_capab=[HT40+]\n")
+	case IEEE80211_AC:
+		f.WriteString("hw_mode=a\n")
+		f.WriteString("ieee80211n=1\n")
+		f.WriteString("ieee80211ac=1\n")
+		f.WriteString("wmm_enabled=1\n")
+		f.WriteString("ht_capab=[HT40+]\n")
 	}
+
+	f.WriteString("preamble=1\n")
 
 	if len(ap.passphrase) > 0 {
 		f.WriteString(fmt.Sprintf("wpa=%d\n", ap.wpa))

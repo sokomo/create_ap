@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -12,19 +13,24 @@ import (
 )
 
 const (
-	Version = "0.3"
+	Version = "1.0.0-alpha"
 )
 
 var (
 	argExamples = kingpin.Command("examples", "Show examples for this tool.")
 
-	argStart   = kingpin.Command("start", "Create new Access Point.")
+	argStart     = kingpin.Command("start", "Create new Access Point.")
+	argInterface = argStart.Arg("interface", "WiFi interface that will create the AP.").
+			Required().String()
 	argGateway = argStart.Flag("gateway", "IPv4 Gateway for the AP.").
 			Short('g').Default("192.168.12.1").String()
-	argInterface = argStart.Flag("interface", "WiFi interface that will create the AP.").
-			Short('i').Required().String()
-	argSSID       = argStart.Flag("ssid", "Name of the AP.").Short('s').Required().String()
-	argPassphrase = argStart.Flag("passphrase", "Set passphrase.").Short('p').String()
+	argSSID           = argStart.Flag("ssid", "Name of the AP.").Short('s').Required().String()
+	argPassphrase     = argStart.Flag("passphrase", "Set passphrase.").Short('p').String()
+	argChannel        = argStart.Flag("channel", "Set channel number").Short('c').Default("1").Uint()
+	argHidden         = argStart.Flag("hidden", "Make AP hidden (i.e. do not broadcast SSID)").Bool()
+	argIsolateClients = argStart.Flag("isolate-clients", "Disable communication between clients").Bool()
+	arg80211          = argStart.Flag("80211", "Set 802.11 protocol. Valid inputs: g, n, ac").
+				Default("n").String()
 )
 
 func main() {
@@ -72,9 +78,22 @@ func cmdStart() {
 		log.Fatalln("Invalid passphrase length (expected 8..63)")
 	}
 
+	switch strings.ToLower(*arg80211) {
+	case "g":
+		ap.ieee80211 = IEEE80211_G
+	case "n":
+		ap.ieee80211 = IEEE80211_N
+	case "ac":
+		ap.ieee80211 = IEEE80211_AC
+	default:
+		log.Fatalln("Invalid 802.11 protocol")
+	}
+
 	ap.wpa = WPA1 | WPA2
-	ap.channel.num = 1
-	ap.channel.mhz = 2412
+	ap.channel = *argChannel
+
+	ap.hiddenSSID = *argHidden
+	ap.isolateClients = *argIsolateClients
 
 	ap.gateway, err = parseIPv4(*argGateway)
 	if err != nil {

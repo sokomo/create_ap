@@ -14,13 +14,14 @@ type IEEE80211 uint
 const (
 	IEEE80211_G IEEE80211 = iota
 	IEEE80211_N
+	IEEE80211_AC
 )
 
 type AccessPoint struct {
 	ssid           string
 	passphrase     string
 	gateway        *IPNet
-	channel        WifiChannel
+	channel        uint
 	ieee80211      IEEE80211
 	countryCode    string
 	hiddenSSID     bool
