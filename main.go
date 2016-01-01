@@ -82,6 +82,7 @@ func cmdStart() {
 		os.Exit(1)
 	}
 
+	// Setup configuration
 	if err = ap.wifiIf.init(*argInterface); err != nil {
 		log.Fatalln(err)
 	}
@@ -122,14 +123,16 @@ func cmdStart() {
 		log.Fatalln(err)
 	}
 
+	// Start AP
 	if err = ap.start(); err != nil {
 		ap.stop()
 		log.Fatalln(err)
 	}
 	defer ap.stop()
 
+	// Wait for exit signal
 	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, os.Interrupt, os.Kill, syscall.SIGTERM, syscall.SIGUSR1)
+	signal.Notify(sigs, os.Interrupt, os.Kill, syscall.SIGTERM)
 
 L:
 	for {
