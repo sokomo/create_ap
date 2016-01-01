@@ -146,8 +146,9 @@ func (ap *AccessPoint) configureDnsmasq() (string, error) {
 		ap.gateway.hostmin(), ap.gateway.hostmax(), ap.gateway.netmask()))
 	f.WriteString("dhcp-option-force=option:router," + gateway + "\n")
 	f.WriteString("dhcp-option-force=option:dns-server," + gateway + "\n")
-	f.WriteString("no-hosts\n")
 	f.WriteString("dhcp-leasefile=" + path.Join(ap.confDir, "dnsmasq.leases") + "\n")
+	f.WriteString("domain-needed\n")
+	f.WriteString("localise-queries\n")
 
 	return confFile, nil
 }
