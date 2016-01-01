@@ -31,6 +31,7 @@ var (
 	argIsolateClients = argStart.Flag("isolate-clients", "Disable communication between clients").Bool()
 	arg80211          = argStart.Flag("80211", "Set 802.11 protocol. Valid inputs: g, n, ac").
 				Default("n").String()
+	argWPA = argStart.Flag("wpa", "Set WPA versions").Default("1,2").String()
 )
 
 func main() {
@@ -46,6 +47,24 @@ func main() {
 
 func cmdExamples() {
 	printExamples()
+}
+
+func parseArgWPA() (WpaVersion, error) {
+	var wpa WpaVersion
+
+	for _, s := range strings.Split(*argWPA, ",") {
+		switch s {
+		case "1":
+			wpa |= WPA1
+		case "2":
+			wpa |= WPA2
+		case "":
+		default:
+			return 0, fmt.Errorf("Invalid WPA version (%s)", s)
+		}
+	}
+
+	return wpa, nil
 }
 
 func cmdStart() {
@@ -89,9 +108,12 @@ func cmdStart() {
 		log.Fatalln("Invalid 802.11 protocol")
 	}
 
-	ap.wpa = WPA1 | WPA2
-	ap.channel = *argChannel
+	ap.wpa, err = parseArgWPA()
+	if err != nil {
+		log.Fatalln(err)
+	}
 
+	ap.channel = *argChannel
 	ap.hiddenSSID = *argHidden
 	ap.isolateClients = *argIsolateClients
 
