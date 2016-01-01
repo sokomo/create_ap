@@ -20,20 +20,26 @@ var (
 	argExamples = kingpin.Command("examples", "Show examples for this tool.")
 
 	argStart     = kingpin.Command("start", "Create new Access Point.")
-	argInterface = argStart.Arg("interface", "WiFi interface that will create the AP.").
-			Required().String()
-	argGateway = argStart.Flag("gateway", "IPv4 Gateway for the AP.").
-			Short('g').Default("192.168.12.1").String()
-	argSSID           = argStart.Flag("ssid", "Name of the AP.").Short('s').Required().String()
-	argPassphrase     = argStart.Flag("passphrase", "Set passphrase.").Short('p').String()
-	argWPA            = argStart.Flag("wpa", "Set WPA versions").Default("1,2").String()
-	argChannel        = argStart.Flag("channel", "Set channel number").Short('c').Default("1").Uint()
-	argHidden         = argStart.Flag("hidden", "Make AP hidden (i.e. do not broadcast SSID)").Bool()
-	argIsolateClients = argStart.Flag("isolate-clients", "Disable communication between clients").Bool()
-	arg80211          = argStart.Flag("80211", "Set 802.11 protocol. Valid inputs: g, n, ac").
-				Default("n").String()
-	argCountry = argStart.Flag("country", "Set two-letter country code for regularity").
-			Default("00").String()
+	argInterface = argStart.Arg("interface",
+		"WiFi interface that will create the AP.").Required().String()
+	argGateway = argStart.Flag("gateway",
+		"IPv4 Gateway for the AP.").Short('g').Default("192.168.12.1").String()
+	argSSID = argStart.Flag("ssid",
+		"Name of the AP.").Short('s').Required().String()
+	argPassphrase = argStart.Flag("passphrase",
+		"Set passphrase.").Short('p').String()
+	argWPA = argStart.Flag("wpa",
+		"Set WPA versions.").Default("1,2").String()
+	argChannel = argStart.Flag("channel",
+		"Set channel number.").Short('c').Default("1").Uint()
+	argHidden = argStart.Flag("hidden",
+		"Make AP hidden (i.e. do not broadcast SSID).").Bool()
+	argIsolateClients = argStart.Flag("isolate-clients",
+		"Disable communication between clients.").Bool()
+	arg80211 = argStart.Flag("80211",
+		"Set 802.11 protocol (valid inputs: g, n, ac).").Default("n").String()
+	argCountry = argStart.Flag("country",
+		"Set two-letter country code for regularity.").Default("00").String()
 )
 
 func main() {
