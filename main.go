@@ -27,7 +27,7 @@ var (
 	argSSID = argStart.Flag("ssid",
 		"Name of the AP.").Short('s').Required().String()
 	argPassphrase = argStart.Flag("passphrase",
-		"Set passphrase.").Short('p').String()
+		"Set passphrase or PSK.").Short('p').String()
 	argWPA = argStart.Flag("wpa",
 		"Set WPA versions.").Default("1,2").String()
 	argChannel = argStart.Flag("channel",
@@ -75,6 +75,27 @@ func parseArgWPA() (WpaVersion, error) {
 	return wpa, nil
 }
 
+func parseArgPassphrase() (string, error) {
+	l := len(*argPassphrase)
+
+	switch {
+	case l == 0:
+		return "", nil
+	case l == 64:
+		psk := strings.ToLower(*argPassphrase)
+		for _, r := range psk {
+			if (r < '0' || r > '9') && (r < 'a' || r > 'f') {
+				return "", fmt.Errorf("PSK must contain hexadecimal values only")
+			}
+		}
+		return psk, nil
+	case l >= 8 && l <= 63:
+		return *argPassphrase, nil
+	default:
+		return "", fmt.Errorf("Invalid passphrase length (expected 8..63)")
+	}
+}
+
 func cmdStart() {
 	var ap AccessPoint
 	var err error
@@ -100,10 +121,9 @@ func cmdStart() {
 		log.Fatalln("Invalid SSID length (expected 1..32)")
 	}
 
-	ap.passphrase = *argPassphrase
-	if len(*argPassphrase) > 0 &&
-		(len(*argPassphrase) < 8 || len(*argPassphrase) > 63) {
-		log.Fatalln("Invalid passphrase length (expected 8..63)")
+	ap.passphrase, err = parseArgPassphrase()
+	if err != nil {
+		log.Fatalln(err)
 	}
 
 	switch strings.ToLower(*arg80211) {
