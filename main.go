@@ -26,12 +26,14 @@ var (
 			Short('g').Default("192.168.12.1").String()
 	argSSID           = argStart.Flag("ssid", "Name of the AP.").Short('s').Required().String()
 	argPassphrase     = argStart.Flag("passphrase", "Set passphrase.").Short('p').String()
+	argWPA            = argStart.Flag("wpa", "Set WPA versions").Default("1,2").String()
 	argChannel        = argStart.Flag("channel", "Set channel number").Short('c').Default("1").Uint()
 	argHidden         = argStart.Flag("hidden", "Make AP hidden (i.e. do not broadcast SSID)").Bool()
 	argIsolateClients = argStart.Flag("isolate-clients", "Disable communication between clients").Bool()
 	arg80211          = argStart.Flag("80211", "Set 802.11 protocol. Valid inputs: g, n, ac").
 				Default("n").String()
-	argWPA = argStart.Flag("wpa", "Set WPA versions").Default("1,2").String()
+	argCountry = argStart.Flag("country", "Set two-letter country code for regularity").
+			Default("00").String()
 )
 
 func main() {
@@ -112,6 +114,11 @@ func cmdStart() {
 	ap.wpa, err = parseArgWPA()
 	if err != nil {
 		log.Fatalln(err)
+	}
+
+	ap.countryCode = strings.ToUpper(*argCountry)
+	if len(ap.countryCode) != 2 {
+		log.Fatalln("Invalid country code")
 	}
 
 	ap.channel = *argChannel

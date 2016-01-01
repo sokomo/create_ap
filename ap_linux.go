@@ -176,6 +176,8 @@ func (ap *AccessPoint) startDnsmasq() error {
 }
 
 func (ap *AccessPoint) configureHostapd() (string, error) {
+	var band uint
+
 	confFile := path.Join(ap.confDir, "hostapd.conf")
 
 	f, err := os.OpenFile(confFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
@@ -190,26 +192,36 @@ func (ap *AccessPoint) configureHostapd() (string, error) {
 
 	switch ap.ieee80211 {
 	case IEEE80211_G:
-		f.WriteString("hw_mode=g\n")
+		band = 2
 	case IEEE80211_N:
 		if ap.channel <= 14 {
-			f.WriteString("hw_mode=g\n")
+			band = 2
 		} else {
-			f.WriteString("hw_mode=a\n")
+			band = 5
 		}
 
 		f.WriteString("ieee80211n=1\n")
 		f.WriteString("wmm_enabled=1\n")
+		// TODO: Improve ht_capab. Check OpenWRT.
 		f.WriteString("ht_capab=[HT40+]\n")
 	case IEEE80211_AC:
-		f.WriteString("hw_mode=a\n")
+		band = 5
 		f.WriteString("ieee80211n=1\n")
 		f.WriteString("ieee80211ac=1\n")
 		f.WriteString("wmm_enabled=1\n")
 		f.WriteString("ht_capab=[HT40+]\n")
 	}
 
-	f.WriteString("preamble=1\n")
+	f.WriteString("country_code=" + ap.countryCode + "\n")
+	f.WriteString("ieee80211d=1\n")
+
+	switch band {
+	case 2:
+		f.WriteString("hw_mode=g\n")
+	case 5:
+		f.WriteString("hw_mode=a\n")
+		f.WriteString("ieee80211h=1\n")
+	}
 
 	if len(ap.passphrase) > 0 {
 		f.WriteString(fmt.Sprintf("wpa=%d\n", ap.wpa))
@@ -223,10 +235,6 @@ func (ap *AccessPoint) configureHostapd() (string, error) {
 		f.WriteString("rsn_pairwise=CCMP\n")
 	}
 
-	if len(ap.countryCode) == 2 {
-		f.WriteString("country_code=" + ap.countryCode + "\n")
-	}
-
 	if ap.hiddenSSID {
 		log.Println("SSID is hidden!")
 		f.WriteString("ignore_broadcast_ssid=1\n")
@@ -237,6 +245,7 @@ func (ap *AccessPoint) configureHostapd() (string, error) {
 		f.WriteString("ap_isolate=1\n")
 	}
 
+	f.WriteString("preamble=1\n")
 	f.WriteString("beacon_int=100\n")
 	f.WriteString("ctrl_interface=" + path.Join(ap.confDir, "hostapd_ctrl") + "\n")
 	f.WriteString("ctrl_interface_group=0\n")
@@ -251,10 +260,6 @@ func (ap *AccessPoint) startHostapd() error {
 	confFile, err := ap.configureHostapd()
 	if err != nil {
 		return err
-	}
-
-	if len(ap.countryCode) == 2 {
-		runCmd("iw", "reg", "set", ap.countryCode)
 	}
 
 	return ap.startCriticalDaemon("hostapd", confFile)
