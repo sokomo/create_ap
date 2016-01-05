@@ -40,6 +40,9 @@ var (
 		"Set 802.11 protocol (valid inputs: g, n, ac).").Default("n").String()
 	argCountry = argStart.Flag("country",
 		"Set two-letter country code for regularity.").Default("00").String()
+
+	argFixUnmanaged = kingpin.Command("fix-unmanaged",
+		"Remove all interfaces from NetworkManager's unmanaged list.")
 )
 
 func main() {
@@ -50,6 +53,8 @@ func main() {
 		cmdExamples()
 	case "start":
 		cmdStart()
+	case "fix-unmanaged":
+		cmdFixUnmanaged()
 	}
 }
 
@@ -182,4 +187,20 @@ L:
 	}
 
 	log.Println("Exiting")
+}
+
+func cmdFixUnmanaged() {
+	if !hasNetworkManager() {
+		return
+	}
+
+	if os.Geteuid() != 0 {
+		fmt.Println("You must run it as root.")
+		os.Exit(1)
+	}
+
+	err := networkManagerRemoveAllUnmanaged()
+	if err != nil {
+		log.Fatalln(err)
+	}
 }

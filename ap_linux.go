@@ -16,6 +16,20 @@ func (ap *AccessPoint) start() error {
 
 	ap.fatalError = make(chan error, 1)
 
+	if hasNetworkManager() {
+		log.Printf("Setting interface '%s' as unmanaged\n", ap.wifiIf.Name)
+
+		err = networkManagerAddUnmanaged(ap.wifiIf.Name)
+		if err != nil {
+			return err
+		}
+
+		if networkManagerRunning() &&
+			!networkManagerWaitUntilUnmanaged(ap.wifiIf.Name) {
+			return fmt.Errorf("Failed to set interface '%s' as unmanaged", ap.wifiIf.Name)
+		}
+	}
+
 	// Set IP on WiFi interface
 	if err = ap.wifiIf.setDown(); err != nil {
 		return err
@@ -64,6 +78,10 @@ func (ap *AccessPoint) stop() {
 	// If any of them are still alive, kill them.
 	for _, cmd := range ap.daemons {
 		cmd.Process.Signal(os.Kill)
+	}
+
+	if hasNetworkManager() {
+		networkManagerRemoveUnmanaged(ap.wifiIf.Name)
 	}
 
 	if ap.confDir != "" {

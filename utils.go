@@ -49,3 +49,31 @@ func runCmd(name string, args ...string) error {
 
 	return nil
 }
+
+// returns:
+// 0 if equal
+// 1 if v1 is grater than v2
+// -1 if v1 is less than v2
+func verCmp(v1 []int, v2 []int) int {
+	maxLen := len(v1)
+	if len(v2) > maxLen {
+		maxLen = len(v2)
+	}
+
+	for i := 0; i < maxLen; i++ {
+		switch {
+		case i < len(v1) && i < len(v2) && v1[i] == v2[i]:
+			continue
+		case i < len(v1) && i < len(v2) && v1[i] > v2[i]:
+			return 1
+		case i < len(v1) && i < len(v2) && v1[i] < v2[i]:
+			return -1
+		case i < len(v1) && v1[i] > 0:
+			return 1
+		case i < len(v2) && v2[i] > 0:
+			return -1
+		}
+	}
+
+	return 0
+}
