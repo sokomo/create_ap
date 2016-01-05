@@ -17,6 +17,11 @@ const (
 	networkManagerConf = "/etc/NetworkManager/NetworkManager.conf"
 )
 
+func init() {
+	// Make sure command outputs are in english, otherwise parsing will fail.
+	os.Setenv("LC_ALL", "C")
+}
+
 func hasNetworkManager() bool {
 	_, err := exec.LookPath("nmcli")
 	return err == nil
