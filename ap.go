@@ -9,20 +9,12 @@ const (
 	WPA2            = 1 << iota
 )
 
-type IEEE80211 uint
-
-const (
-	IEEE80211_G IEEE80211 = iota
-	IEEE80211_N
-	IEEE80211_AC
-)
-
 type AccessPoint struct {
 	ssid           string
 	passphrase     string
 	gateway        *IPNet
 	channel        uint
-	ieee80211      IEEE80211
+	ieee80211      string
 	countryCode    string
 	hiddenSSID     bool
 	isolateClients bool

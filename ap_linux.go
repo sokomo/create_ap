@@ -14,6 +14,62 @@ import (
 func (ap *AccessPoint) start() error {
 	var err error
 
+	if !ap.wifiIf.canTransmitOnChannel(ap.channel) {
+		return fmt.Errorf("Your adapter cannot transmit on channel %d", ap.channel)
+	}
+
+	hwmodes := ap.wifiIf.hwmodes
+	s := "Your adapter does not support transmission on 802.11"
+
+	// If IEEE 802.11 protocol is not selected then we need to choose the most
+	// recent one that adapter supports.
+	if ap.ieee80211 == "auto" {
+		if ap.channel <= 14 {
+			switch {
+			case hwmodes&IEEE80211_N != 0:
+				ap.ieee80211 = "n"
+			case hwmodes&IEEE80211_G != 0:
+				ap.ieee80211 = "g"
+			default:
+				return fmt.Errorf(s + "g/n")
+			}
+		} else {
+			switch {
+			case hwmodes&IEEE80211_AC != 0:
+				ap.ieee80211 = "ac"
+			case hwmodes&IEEE80211_N != 0:
+				ap.ieee80211 = "n"
+			case hwmodes&IEEE80211_A != 0:
+				ap.ieee80211 = "a"
+			default:
+				return fmt.Errorf(s + "a/n/ac")
+			}
+		}
+	}
+
+	switch ap.ieee80211 {
+	case "a":
+		if hwmodes&IEEE80211_A == 0 {
+			return fmt.Errorf(s + "a")
+		}
+	case "g":
+		if hwmodes&IEEE80211_G == 0 {
+			return fmt.Errorf(s + "g")
+		}
+	case "n":
+		if hwmodes&IEEE80211_N == 0 {
+			return fmt.Errorf(s + "n")
+		}
+	case "ac":
+		if hwmodes&IEEE80211_AC == 0 {
+			return fmt.Errorf(s + "ac")
+		}
+	default:
+		return fmt.Errorf("Invalid 802.11 protocol")
+	}
+
+	log.Println("Using 802.11" + ap.ieee80211)
+
 	ap.fatalError = make(chan error, 1)
 
 	if hasNetworkManager() {
@@ -211,9 +267,11 @@ func (ap *AccessPoint) configureHostapd() (string, error) {
 	f.WriteString(fmt.Sprintf("channel=%d\n", ap.channel))
 
 	switch ap.ieee80211 {
-	case IEEE80211_G:
+	case "a":
+		band = 5
+	case "g":
 		band = 2
-	case IEEE80211_N:
+	case "n":
 		if ap.channel <= 14 {
 			band = 2
 		} else {
@@ -224,7 +282,7 @@ func (ap *AccessPoint) configureHostapd() (string, error) {
 		f.WriteString("wmm_enabled=1\n")
 		// TODO: Improve ht_capab. Check OpenWRT.
 		f.WriteString("ht_capab=[HT40+]\n")
-	case IEEE80211_AC:
+	case "ac":
 		band = 5
 		f.WriteString("ieee80211n=1\n")
 		f.WriteString("ieee80211ac=1\n")
@@ -240,6 +298,7 @@ func (ap *AccessPoint) configureHostapd() (string, error) {
 		f.WriteString("hw_mode=g\n")
 	case 5:
 		f.WriteString("hw_mode=a\n")
+		// TODO: check if 802.11a support this
 		f.WriteString("ieee80211h=1\n")
 	}
 

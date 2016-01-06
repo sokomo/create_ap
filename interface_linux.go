@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"strings"
 )
 
 type Interface struct {
@@ -52,33 +51,4 @@ func (iface *Interface) setDown() error {
 func (iface *Interface) addIPv4(ipnet *IPNet) error {
 	return runCmd("ip", "addr", "add", ipnet.String(),
 		"broadcast", ipnet.broadcast().String(), "dev", iface.Name)
-}
-
-type WifiChannel struct {
-	num uint
-	mhz uint
-}
-
-type WifiInterface struct {
-	Interface
-	module string
-}
-
-func (wifiIf *WifiInterface) init(ifname string) error {
-	err := wifiIf.Interface.init(ifname)
-	if err != nil {
-		return err
-	}
-
-	if !wifiIf.isWifi() {
-		return fmt.Errorf("'%s' is not a WiFi interface", wifiIf)
-	}
-
-	// get kernel module
-	path, err := os.Readlink("/sys/class/net/" + wifiIf.Name + "/device/driver/module")
-	if err == nil {
-		wifiIf.module = path[strings.LastIndex(path, "/")+1:]
-	}
-
-	return nil
 }

@@ -37,7 +37,7 @@ var (
 	argIsolateClients = argStart.Flag("isolate-clients",
 		"Disable communication between clients.").Bool()
 	arg80211 = argStart.Flag("80211",
-		"Set 802.11 protocol (valid inputs: g, n, ac).").Default("n").String()
+		"Set 802.11 protocol (valid inputs: auto, a, g, n, ac).").Default("auto").String()
 	argCountry = argStart.Flag("country",
 		"Set two-letter country code for regularity.").Default("00").String()
 
@@ -131,17 +131,6 @@ func cmdStart() {
 		log.Fatalln(err)
 	}
 
-	switch strings.ToLower(*arg80211) {
-	case "g":
-		ap.ieee80211 = IEEE80211_G
-	case "n":
-		ap.ieee80211 = IEEE80211_N
-	case "ac":
-		ap.ieee80211 = IEEE80211_AC
-	default:
-		log.Fatalln("Invalid 802.11 protocol")
-	}
-
 	ap.wpa, err = parseArgWPA()
 	if err != nil {
 		log.Fatalln(err)
@@ -152,6 +141,7 @@ func cmdStart() {
 		log.Fatalln("Invalid country code")
 	}
 
+	ap.ieee80211 = strings.ToLower(*arg80211)
 	ap.channel = *argChannel
 	ap.hiddenSSID = *argHidden
 	ap.isolateClients = *argIsolateClients
