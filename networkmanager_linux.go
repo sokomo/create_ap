@@ -77,7 +77,19 @@ func networkManagerRunning() bool {
 	cmd.Stderr = &out
 	cmd.Run()
 
-	return strings.TrimSpace(out.String()) == "running"
+	for {
+		line, err := out.ReadString('\n')
+
+		if err != nil {
+			break
+		}
+
+		if strings.TrimSpace(line) == "running" {
+			return true
+		}
+	}
+
+	return false
 }
 
 func networkManagerReadConf() (lines []string, keyfileIndex int, unmanagedIndex int, err error) {
