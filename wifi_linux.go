@@ -163,3 +163,19 @@ func (wifiIf *WifiInterface) canTransmitOnChannel(channel uint) bool {
 	}
 	return false
 }
+
+func (wifiIf *WifiInterface) canAutoSelectChannel() bool {
+	var out bytes.Buffer
+
+	// Adapter must support survey dump to automatically select channel
+	cmd := exec.Command("iw", "dev", wifiIf.Name, "survey", "dump")
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+
+	err := cmd.Run()
+	if err != nil || out.Len() == 0 {
+		return false
+	}
+
+	return true
+}

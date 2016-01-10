@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -31,7 +32,7 @@ var (
 	argWPA = argStart.Flag("wpa",
 		"Set WPA versions.").Default("1,2").String()
 	argChannel = argStart.Flag("channel",
-		"Set channel number.").Short('c').Default("1").Uint()
+		"Set channel number.").Short('c').Default("auto").String()
 	argHidden = argStart.Flag("hidden",
 		"Make AP hidden (i.e. do not broadcast SSID).").Bool()
 	argIsolateClients = argStart.Flag("isolate-clients",
@@ -101,6 +102,19 @@ func parseArgPassphrase() (string, error) {
 	}
 }
 
+func parseArgChannel() (uint, error) {
+	if *argChannel == "auto" {
+		return CHANNEL_AUTO, nil
+	}
+
+	u, err := strconv.ParseUint(*argChannel, 10, 32)
+	if err != nil {
+		return 0, fmt.Errorf("Invalid channel number")
+	}
+
+	return uint(u), nil
+}
+
 func cmdStart() {
 	var ap AccessPoint
 	var err error
@@ -141,8 +155,12 @@ func cmdStart() {
 		log.Fatalln("Invalid country code")
 	}
 
+	ap.channel, err = parseArgChannel()
+	if err != nil {
+		log.Fatalln(err)
+	}
+
 	ap.ieee80211 = strings.ToLower(*arg80211)
-	ap.channel = *argChannel
 	ap.hiddenSSID = *argHidden
 	ap.isolateClients = *argIsolateClients
 

@@ -11,12 +11,10 @@ import (
 	"time"
 )
 
+const CHANNEL_AUTO = 0
+
 func (ap *AccessPoint) start() error {
 	var err error
-
-	if !ap.wifiIf.canTransmitOnChannel(ap.channel) {
-		return fmt.Errorf("Your adapter cannot transmit on channel %d", ap.channel)
-	}
 
 	hwmodes := ap.wifiIf.hwmodes
 	s := "Your adapter does not support transmission on 802.11"
@@ -24,7 +22,21 @@ func (ap *AccessPoint) start() error {
 	// If IEEE 802.11 protocol is not selected then we need to choose the most
 	// recent one that adapter supports.
 	if ap.ieee80211 == "auto" {
-		if ap.channel <= 14 {
+		switch {
+		case ap.channel == CHANNEL_AUTO:
+			switch {
+			case hwmodes&IEEE80211_AC != 0:
+				ap.ieee80211 = "ac"
+			case hwmodes&IEEE80211_N != 0:
+				ap.ieee80211 = "n"
+			case hwmodes&IEEE80211_G != 0:
+				ap.ieee80211 = "g"
+			case hwmodes&IEEE80211_A != 0:
+				ap.ieee80211 = "a"
+			default:
+				return fmt.Errorf(s + "a/g/n/ac")
+			}
+		case ap.channel >= 1 && ap.channel <= 14:
 			switch {
 			case hwmodes&IEEE80211_N != 0:
 				ap.ieee80211 = "n"
@@ -33,7 +45,7 @@ func (ap *AccessPoint) start() error {
 			default:
 				return fmt.Errorf(s + "g/n")
 			}
-		} else {
+		default:
 			switch {
 			case hwmodes&IEEE80211_AC != 0:
 				ap.ieee80211 = "ac"
@@ -69,6 +81,27 @@ func (ap *AccessPoint) start() error {
 	}
 
 	log.Println("Using 802.11" + ap.ieee80211)
+
+	if ap.channel == CHANNEL_AUTO && !ap.wifiIf.canAutoSelectChannel() {
+		switch ap.ieee80211 {
+		case "a", "ac":
+			ap.channel = 36
+		case "g":
+			ap.channel = 1
+		case "n":
+			// 802.11n can be a 2.4 GHz or 5 GHz channel.
+			// Use the first supported channel.
+			ap.channel = ap.wifiIf.channels[0].num
+		default:
+			log.Panicln("Default channel for 802.11" + ap.ieee80211 + " is not set!")
+		}
+		log.Println("Your adapter does not support auto channel",
+			"selection, using channel", ap.channel)
+	}
+
+	if ap.channel != CHANNEL_AUTO && !ap.wifiIf.canTransmitOnChannel(ap.channel) {
+		return fmt.Errorf("Your adapter cannot transmit on channel %d", ap.channel)
+	}
 
 	ap.fatalError = make(chan error, 1)
 
