@@ -44,7 +44,7 @@ func runCmd(name string, args ...string) error {
 		}
 
 		return fmt.Errorf("cmd: %s\nexit status: %d\nout: %s",
-			b.String(), exitStatus, strings.Trim(out.String(), " \t\n"))
+			b.String(), exitStatus, strings.TrimSpace(out.String()))
 	}
 
 	return nil
