@@ -18,9 +18,11 @@ const (
 )
 
 var (
-	argExamples = kingpin.Command("examples", "Show examples for this tool.")
+	argExamples = kingpin.Command("examples",
+		"Show examples for this tool.")
 
-	argStart     = kingpin.Command("start", "Create new Access Point.")
+	argStart = kingpin.Command("start",
+		"Create new Access Point.")
 	argInterface = argStart.Arg("interface",
 		"WiFi interface that will create the AP.").Required().String()
 	argGateway = argStart.Flag("gateway",
